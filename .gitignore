@@ -1,0 +1,13 @@
+# Supabase credentials
+config.js
+
+# Local development
+.DS_Store
+*.log
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
