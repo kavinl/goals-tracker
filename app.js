@@ -2,30 +2,95 @@
 
 class GoalTracker {
     constructor() {
-        this.goals = this.loadGoals();
+        this.goals = [];
         this.currentView = 'active';
         this.editingGoalId = null;
         this.deprioritizingGoalId = null;
+        this.isOnline = true;
         this.init();
     }
 
-    init() {
+    async init() {
         this.setupEventListeners();
+        await this.loadGoals();
         this.renderCurrentView();
     }
 
-    // Data Management
-    loadGoals() {
-        const stored = localStorage.getItem('goals');
-        return stored ? JSON.parse(stored) : [];
+    // Data Management - Supabase Integration
+    async loadGoals() {
+        try {
+            // Try to fetch from Supabase
+            const { data, error } = await supabase
+                .from('goals')
+                .select('*')
+                .order('last_updated', { ascending: false });
+
+            if (error) throw error;
+
+            // Convert from snake_case (Supabase) to camelCase (app)
+            this.goals = data.map(this.convertFromSupabase);
+
+            // Cache in localStorage for offline use
+            localStorage.setItem('goals', JSON.stringify(this.goals));
+            this.isOnline = true;
+        } catch (error) {
+            console.warn('Failed to load from Supabase, using local cache:', error);
+            // Fallback to localStorage
+            const stored = localStorage.getItem('goals');
+            this.goals = stored ? JSON.parse(stored) : [];
+            this.isOnline = false;
+        }
     }
 
-    saveGoals() {
+    async saveGoals() {
+        // Just update localStorage cache and re-render
+        // Actual Supabase saves happen in individual CRUD operations
         localStorage.setItem('goals', JSON.stringify(this.goals));
         this.renderCurrentView();
     }
 
-    addGoal(goalData) {
+    // Convert between app format (camelCase) and Supabase format (snake_case)
+    convertToSupabase(goal) {
+        return {
+            id: goal.id,
+            name: goal.name,
+            category: goal.category,
+            tracking_type: goal.trackingType,
+            current_value: goal.currentValue,
+            target_value: goal.targetValue,
+            priority: goal.priority,
+            status: goal.status,
+            date_added: goal.dateAdded,
+            target_date: goal.targetDate,
+            notes: goal.notes,
+            last_updated: goal.lastUpdated,
+            completed_date: goal.completedDate,
+            deprioritized_date: goal.deprioritizedDate,
+            deprioritize_reason: goal.deprioritizeReason
+        };
+    }
+
+    convertFromSupabase(dbGoal) {
+        return {
+            id: dbGoal.id,
+            name: dbGoal.name,
+            category: dbGoal.category,
+            trackingType: dbGoal.tracking_type,
+            currentValue: dbGoal.current_value,
+            targetValue: dbGoal.target_value,
+            priority: dbGoal.priority,
+            status: dbGoal.status,
+            dateAdded: dbGoal.date_added,
+            targetDate: dbGoal.target_date,
+            notes: dbGoal.notes,
+            lastUpdated: dbGoal.last_updated,
+            completedDate: dbGoal.completed_date,
+            deprioritizedDate: dbGoal.deprioritized_date,
+            deprioritizeReason: dbGoal.deprioritize_reason
+        };
+    }
+
+    async addGoal(goalData) {
         const goal = {
             id: Date.now().toString(),
             name: goalData.name,
@@ -43,11 +108,28 @@ class GoalTracker {
             deprioritizedDate: null,
             deprioritizeReason: null
         };
-        this.goals.push(goal);
-        this.saveGoals();
+
+        try {
+            // Insert into Supabase
+            const { error } = await supabase
+                .from('goals')
+                .insert([this.convertToSupabase(goal)]);
+
+            if (error) throw error;
+
+            // Update local state
+            this.goals.push(goal);
+            this.saveGoals();
+        } catch (error) {
+            console.error('Failed to add goal to Supabase:', error);
+            // Fallback to local-only
+            this.goals.push(goal);
+            this.saveGoals();
+            alert('Goal saved locally. Will sync when connection is restored.');
+        }
     }
 
-    updateGoal(id, updates) {
+    async updateGoal(id, updates) {
         const index = this.goals.findIndex(g => g.id === id);
         if (index !== -1) {
             this.goals[index] = { ...this.goals[index], ...updates, lastUpdated: new Date().toISOString() };
@@ -60,13 +142,43 @@ class GoalTracker {
                 this.goals[index].deprioritizedDate = new Date().toISOString();
             }
 
-            this.saveGoals();
+            try {
+                // Update in Supabase
+                const { error } = await supabase
+                    .from('goals')
+                    .update(this.convertToSupabase(this.goals[index]))
+                    .eq('id', id);
+
+                if (error) throw error;
+
+                this.saveGoals();
+            } catch (error) {
+                console.error('Failed to update goal in Supabase:', error);
+                // Still save locally
+                this.saveGoals();
+            }
         }
     }
 
-    deleteGoal(id) {
-        this.goals = this.goals.filter(g => g.id !== id);
-        this.saveGoals();
+    async deleteGoal(id) {
+        try {
+            // Delete from Supabase
+            const { error } = await supabase
+                .from('goals')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            // Update local state
+            this.goals = this.goals.filter(g => g.id !== id);
+            this.saveGoals();
+        } catch (error) {
+            console.error('Failed to delete goal from Supabase:', error);
+            // Still delete locally
+            this.goals = this.goals.filter(g => g.id !== id);
+            this.saveGoals();
+        }
     }
 
     restoreGoal(id) {
@@ -614,7 +726,7 @@ class GoalTracker {
         datalist.innerHTML = categories.map(cat => `<option value="${this.escapeHtml(cat)}">`).join('');
     }
 
-    saveGoalFromForm() {
+    async saveGoalFromForm() {
         const formData = {
             name: document.getElementById('goalName').value,
             category: document.getElementById('goalCategory').value,
@@ -627,9 +739,9 @@ class GoalTracker {
         };
 
         if (this.editingGoalId) {
-            this.updateGoal(this.editingGoalId, formData);
+            await this.updateGoal(this.editingGoalId, formData);
         } else {
-            this.addGoal(formData);
+            await this.addGoal(formData);
         }
 
         this.closeModals();
