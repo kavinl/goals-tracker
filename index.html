@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goal Tracking Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Goal Tracking Dashboard</h1>
+            <div class="header-actions">
+                <button id="addGoalBtn" class="btn btn-primary">+ Add Goal</button>
+                <button id="exportBtn" class="btn btn-secondary">Export Data</button>
+                <button id="importBtn" class="btn btn-secondary">Import Data</button>
+                <input type="file" id="importFile" accept=".json" style="display: none;">
+            </div>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab-btn active" data-view="active">Active Work</button>
+            <button class="tab-btn" data-view="weekly">Weekly Review</button>
+            <button class="tab-btn" data-view="archive">Archive</button>
+        </nav>
+
+        <!-- Active Work View -->
+        <div id="activeView" class="view active">
+            <div id="activeGoalsContainer"></div>
+            <div class="empty-state" style="display: none;">
+                <p>No active goals yet. Click "Add Goal" to get started!</p>
+            </div>
+        </div>
+
+        <!-- Weekly Review View -->
+        <div id="weeklyView" class="view">
+            <div class="stats-summary">
+                <div class="stat-card">
+                    <span class="stat-label">Updated This Week</span>
+                    <span class="stat-value" id="updatedThisWeek">0/0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Needs Attention</span>
+                    <span class="stat-value" id="needsAttention">0</span>
+                </div>
+                <div id="categoryBreakdown" class="stat-card-wide"></div>
+            </div>
+            <div id="weeklyGoalsContainer"></div>
+            <div class="empty-state" style="display: none;">
+                <p>No goals to review.</p>
+            </div>
+        </div>
+
+        <!-- Archive View -->
+        <div id="archiveView" class="view">
+            <div id="archiveGoalsContainer"></div>
+            <div class="empty-state" style="display: none;">
+                <p>No archived goals.</p>
+            </div>
+        </div>
+
+        <!-- AI Summary Placeholder -->
+        <div class="ai-summary-placeholder">
+            <h3>AI Summary - Coming Soon</h3>
+            <p>Future AI-powered insights will appear here</p>
+        </div>
+    </div>
+
+    <!-- Add/Edit Goal Modal -->
+    <div id="goalModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2 id="modalTitle">Add New Goal</h2>
+            <form id="goalForm">
+                <div class="form-group">
+                    <label for="goalName">Goal Name *</label>
+                    <input type="text" id="goalName" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="goalCategory">Category *</label>
+                    <input type="text" id="goalCategory" list="categoryList" required>
+                    <datalist id="categoryList"></datalist>
+                </div>
+
+                <div class="form-group">
+                    <label>Tracking Type *</label>
+                    <div class="radio-group">
+                        <label>
+                            <input type="radio" name="trackingType" value="number" checked>
+                            Number with Target
+                        </label>
+                        <label>
+                            <input type="radio" name="trackingType" value="checkbox">
+                            Yes/No Checkbox
+                        </label>
+                    </div>
+                </div>
+
+                <div id="numberTargetGroup" class="form-group">
+                    <label for="targetValue">Target Value</label>
+                    <input type="number" id="targetValue" min="0" step="0.01">
+                </div>
+
+                <div class="form-group">
+                    <label for="priority">Priority *</label>
+                    <select id="priority" required>
+                        <option value="High">High</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Status *</label>
+                    <select id="status" required>
+                        <option value="Not Started">Not Started</option>
+                        <option value="Active" selected>Active</option>
+                        <option value="Blocked">Blocked</option>
+                        <option value="Completed">Completed</option>
+                        <option value="Deprioritized">Deprioritized</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="targetDate">Target Completion Date</label>
+                    <input type="date" id="targetDate">
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" rows="3"></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Goal</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Deprioritize Modal -->
+    <div id="deprioritizeModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Deprioritize Goal</h2>
+            <form id="deprioritizeForm">
+                <div class="form-group">
+                    <label for="deprioritizeReason">Reason for Deprioritizing *</label>
+                    <textarea id="deprioritizeReason" rows="3" required></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelDeprioritize">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Confirm</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
