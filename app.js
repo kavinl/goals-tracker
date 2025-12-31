@@ -28,7 +28,7 @@ class GoalTracker {
             if (error) throw error;
 
             // Convert from snake_case (Supabase) to camelCase (app)
-            this.goals = data.map(this.convertFromSupabase);
+            this.goals = data.map(dbGoal => this.convertFromSupabase(dbGoal));
 
             // Cache in localStorage for offline use
             localStorage.setItem('goals', JSON.stringify(this.goals));

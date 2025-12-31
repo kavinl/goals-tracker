@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supabase Connection Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-result {
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>Supabase Connection Test</h1>
+    <p>This page will test your Supabase configuration and connection.</p>
+
+    <button onclick="runTests()">Run Tests</button>
+
+    <div id="results"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script>
+        async function runTests() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h2>Running Tests...</h2>';
+
+            const results = [];
+
+            // Test 1: Check if Supabase config is loaded
+            results.push(testConfigLoaded());
+
+            // Test 2: Check if Supabase client is initialized
+            results.push(testClientInitialized());
+
+            // Test 3: Test connection to Supabase
+            await testConnection(results);
+
+            // Test 4: Test reading from goals table
+            await testReadGoals(results);
+
+            // Test 5: Test writing to goals table
+            await testWriteGoal(results);
+
+            // Display results
+            displayResults(results);
+        }
+
+        function testConfigLoaded() {
+            if (typeof SUPABASE_CONFIG === 'undefined') {
+                return {
+                    name: 'Config Loaded',
+                    success: false,
+                    message: 'SUPABASE_CONFIG is not defined. Check if config.js is loaded.'
+                };
+            }
+
+            if (SUPABASE_CONFIG.url === 'YOUR_SUPABASE_URL' ||
+                SUPABASE_CONFIG.anonKey === 'YOUR_SUPABASE_ANON_KEY') {
+                return {
+                    name: 'Config Loaded',
+                    success: false,
+                    message: 'Config file exists but credentials are not set. Please update config.js with your actual Supabase URL and anon key.'
+                };
+            }
+
+            return {
+                name: 'Config Loaded',
+                success: true,
+                message: `URL: ${SUPABASE_CONFIG.url}<br>Key: ${SUPABASE_CONFIG.anonKey.substring(0, 20)}...`
+            };
+        }
+
+        function testClientInitialized() {
+            if (typeof supabase === 'undefined') {
+                return {
+                    name: 'Client Initialized',
+                    success: false,
+                    message: 'Supabase client is not initialized.'
+                };
+            }
+
+            return {
+                name: 'Client Initialized',
+                success: true,
+                message: 'Supabase client is ready.'
+            };
+        }
+
+        async function testConnection(results) {
+            try {
+                const { data, error } = await supabase
+                    .from('goals')
+                    .select('count', { count: 'exact', head: true });
+
+                if (error) throw error;
+
+                results.push({
+                    name: 'Connection Test',
+                    success: true,
+                    message: 'Successfully connected to Supabase!'
+                });
+            } catch (error) {
+                results.push({
+                    name: 'Connection Test',
+                    success: false,
+                    message: `Connection failed: ${error.message}<br><pre>${JSON.stringify(error, null, 2)}</pre>`
+                });
+            }
+        }
+
+        async function testReadGoals(results) {
+            try {
+                const { data, error } = await supabase
+                    .from('goals')
+                    .select('*')
+                    .limit(5);
+
+                if (error) throw error;
+
+                results.push({
+                    name: 'Read Goals',
+                    success: true,
+                    message: `Successfully read ${data.length} goals from database.<br><pre>${JSON.stringify(data, null, 2)}</pre>`
+                });
+            } catch (error) {
+                results.push({
+                    name: 'Read Goals',
+                    success: false,
+                    message: `Read failed: ${error.message}<br><pre>${JSON.stringify(error, null, 2)}</pre>`
+                });
+            }
+        }
+
+        async function testWriteGoal(results) {
+            const testGoal = {
+                id: 'test-' + Date.now(),
+                name: 'Test Goal',
+                category: 'Testing',
+                tracking_type: 'checkbox',
+                current_value: false,
+                target_value: null,
+                priority: 'Low',
+                status: 'Active',
+                date_added: new Date().toISOString(),
+                target_date: null,
+                notes: 'This is a test goal created by the connection test.',
+                last_updated: new Date().toISOString(),
+                completed_date: null,
+                deprioritized_date: null,
+                deprioritize_reason: null
+            };
+
+            try {
+                // Try to insert
+                const { data: insertData, error: insertError } = await supabase
+                    .from('goals')
+                    .insert([testGoal])
+                    .select();
+
+                if (insertError) throw insertError;
+
+                // Try to delete the test goal
+                const { error: deleteError } = await supabase
+                    .from('goals')
+                    .delete()
+                    .eq('id', testGoal.id);
+
+                if (deleteError) throw deleteError;
+
+                results.push({
+                    name: 'Write Goal',
+                    success: true,
+                    message: 'Successfully created and deleted a test goal!'
+                });
+            } catch (error) {
+                results.push({
+                    name: 'Write Goal',
+                    success: false,
+                    message: `Write failed: ${error.message}<br><pre>${JSON.stringify(error, null, 2)}</pre>`
+                });
+            }
+        }
+
+        function displayResults(results) {
+            const resultsDiv = document.getElementById('results');
+            let html = '<h2>Test Results</h2>';
+
+            let allPassed = true;
+            results.forEach(result => {
+                if (!result.success) allPassed = false;
+
+                html += `
+                    <div class="test-result ${result.success ? 'success' : 'error'}">
+                        <strong>${result.success ? '✓' : '✗'} ${result.name}</strong><br>
+                        ${result.message}
+                    </div>
+                `;
+            });
+
+            if (allPassed) {
+                html += `
+                    <div class="test-result success">
+                        <strong>🎉 All tests passed!</strong><br>
+                        Your Supabase integration is working correctly. The app should be able to save and load goals.
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="test-result info">
+                        <strong>💡 Next Steps:</strong><br>
+                        1. Make sure you've run the SQL schema in Supabase Dashboard<br>
+                        2. Verify your config.js has the correct URL and anon key<br>
+                        3. Check that the 'goals' table exists in your Supabase database<br>
+                        4. Verify RLS policies allow insert/select/update/delete operations
+                    </div>
+                `;
+            }
+
+            resultsDiv.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
